@@ -21,9 +21,9 @@ afterEach(() => {
   jest.useRealTimers();
 });
 
-const seedTestGame = () => {
+const seedTestGame = (startColor = colors[0], otherColor = colors[1]) => {
   const board = Array.from({ length: CELL_COUNT }, (_, index) =>
-    index === 0 ? colors[0] : colors[1],
+    index === 0 ? startColor : otherColor,
   );
   window.localStorage.setItem(
     "virus-spread-seeded",
@@ -74,6 +74,44 @@ describe("VirusSpreadHex replay game", () => {
     await user.click(screen.getByRole("button", { name: /replay game/i }));
     expect(startCell.getAttribute("data-color")).toBe(
       extractColorName(colors[0]),
+    );
+  });
+
+  it("replays the current game after starting a new game", async () => {
+    seedTestGame(colors[0], colors[1]);
+    enableTestMode();
+
+    const { container } = render(<VirusSpread />);
+    await act(async () => {
+      jest.runOnlyPendingTimers();
+    });
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+
+    const startCell = container.querySelector('[data-cell-index="0"]');
+    expect(startCell).not.toBeNull();
+    if (!startCell) {
+      throw new Error("Expected start cell to exist");
+    }
+
+    seedTestGame(colors[2], colors[3]);
+    await user.click(screen.getByRole("button", { name: /new game/i }));
+
+    expect(startCell.getAttribute("data-color")).toBe(
+      extractColorName(colors[2]),
+    );
+
+    await user.click(
+      screen.getByRole("button", {
+        name: new RegExp(extractColorName(colors[1]), "i"),
+      }),
+    );
+    expect(startCell.getAttribute("data-color")).toBe(
+      extractColorName(colors[1]),
+    );
+
+    await user.click(screen.getByRole("button", { name: /replay game/i }));
+    expect(startCell.getAttribute("data-color")).toBe(
+      extractColorName(colors[2]),
     );
   });
 });

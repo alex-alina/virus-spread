@@ -159,10 +159,10 @@ export const VirusSpread = () => {
   };
 
   const handleReplayGame = () => {
-    setCellColors(initialGame.board);
-    setStartingPoint(initialGame.startingPoint);
-    setSolverBoard(initialGame.board);
-    setSolverStart(initialGame.startingPoint);
+    setCellColors(solverBoard);
+    setStartingPoint(solverStart);
+    setSolverBoard(solverBoard);
+    setSolverStart(solverStart);
     setOptimalSteps(null);
     setStepsTaken(0);
     setGameStartedAt(Date.now());

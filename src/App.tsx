@@ -1,7 +1,8 @@
 import "./App.css";
+import { VirusSpread } from "./game/VirusSpread";
 
 function App() {
-  return <>Hello</>;
+  return <VirusSpread />;
 }
 
 export default App;

@@ -8,6 +8,10 @@ import {
 } from "../src/utils/utils";
 
 type SolverGraph = NonNullable<ReturnType<typeof buildHexComponentGraph>>;
+type SeededStoragePayload = {
+  board: string[];
+  startIndex: number;
+};
 
 const buildSeededBoard = (
   seed: number,
@@ -122,12 +126,36 @@ const buildOptimalSequence = (
 };
 
 const toUrl = (path: string, testInfo: TestInfo) => {
+  const baseUrlFromEnv =
+    typeof globalThis === "object" && "process" in globalThis
+      ? (
+          globalThis as {
+            process?: { env?: Record<string, string | undefined> };
+          }
+        ).process?.env?.PLAYWRIGHT_BASE_URL
+      : undefined;
+
   const baseURL =
     (typeof testInfo.project.use.baseURL === "string" &&
       testInfo.project.use.baseURL) ||
-    process.env.PLAYWRIGHT_BASE_URL ||
+    baseUrlFromEnv ||
     "http://127.0.0.1:5173";
   return new URL(path, baseURL).toString();
+};
+
+const readOptimalSteps = async (
+  page: import("@playwright/test").Page,
+): Promise<number> => {
+  const optimalStepsLocator = page.getByTestId("optimal-steps");
+
+  await expect
+    .poll(async () => (await optimalStepsLocator.innerText()).trim(), {
+      timeout: 30000,
+      message: "Expected optimal steps to resolve to a numeric value",
+    })
+    .toMatch(/^[0-9]+$/);
+
+  return Number((await optimalStepsLocator.innerText()).trim());
 };
 
 const solveAndAssert = async (
@@ -152,10 +180,7 @@ const solveAndAssert = async (
 ) => {
   await page.goto(toUrl(path, testInfo));
 
-  const optimalStepsLocator = page.getByTestId("optimal-steps");
-  await expect(optimalStepsLocator).toHaveText(/^[0-9]+$/);
-
-  const optimalSteps = Number((await optimalStepsLocator.innerText()).trim());
+  const optimalSteps = await readOptimalSteps(page);
   const testGame = buildTestGame();
   const solution = buildOptimalSequence(
     testGame.board,
@@ -207,7 +232,7 @@ const solveAndAssertSeeded = async (
   );
 
   await page.addInitScript(
-    ({ board, startIndex }) => {
+    ({ board, startIndex }: SeededStoragePayload) => {
       window.localStorage.setItem(
         "virus-spread-seeded",
         JSON.stringify({ board, startIndex }),
@@ -218,10 +243,7 @@ const solveAndAssertSeeded = async (
 
   await page.goto(toUrl(path, testInfo));
 
-  const optimalStepsLocator = page.getByTestId("optimal-steps");
-  await expect(optimalStepsLocator).toHaveText(/^[0-9]+$/);
-
-  const optimalSteps = Number((await optimalStepsLocator.innerText()).trim());
+  const optimalSteps = await readOptimalSteps(page);
   expect(solution.length).toBe(optimalSteps);
 
   for (const colorIndex of solution) {
@@ -252,7 +274,7 @@ const restartAndAssert = async (
   const seededBoard = board ?? buildRestartBoard(cellCount, colors);
 
   await page.addInitScript(
-    ({ seededBoard: storedBoard }) => {
+    ({ seededBoard: storedBoard }: { seededBoard: string[] }) => {
       window.localStorage.setItem(
         "virus-spread-seeded",
         JSON.stringify({ board: storedBoard, startIndex: 0 }),

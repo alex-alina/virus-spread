@@ -1,11 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import clsx from "clsx";
 import happyVirus from "../assets/happy-virus.png";
 import {
+  BOARD_SIZES,
   buildComponentGraph,
   buildNewGame,
   buildTestGame,
-  CELL_COUNT,
   colors,
   extractColorName,
   formatElapsedTime,
@@ -14,7 +14,7 @@ import {
   GRID_SIZE,
   solveExactlyAsync,
 } from "../utils/utils";
-import { RotateCw } from "lucide-react";
+import { ChevronDown, RotateCw } from "lucide-react";
 
 const MAX_HEX_SIZE_PX = 18;
 const MIN_HEX_SIZE_PX = 8;
@@ -41,28 +41,53 @@ export const VirusSpread = () => {
       const parsed = JSON.parse(stored) as {
         board?: string[];
         startIndex?: number;
+        gridSize?: number;
       };
       if (!parsed.board || parsed.startIndex === undefined) {
+        return null;
+      }
+
+      const inferredGridSize = Math.sqrt(parsed.board.length);
+      const parsedGridSize =
+        parsed.gridSize ??
+        (Number.isInteger(inferredGridSize) ? inferredGridSize : GRID_SIZE);
+
+      if (parsed.board.length !== parsedGridSize * parsedGridSize) {
         return null;
       }
 
       return {
         board: parsed.board,
         startingPoint: parsed.startIndex,
+        gridSize: parsedGridSize,
       };
     } catch {
       return null;
     }
   }, [isTestMode]);
 
+  const initialStoredTestGame = useMemo(
+    () => getTestGameFromStorage(),
+    [getTestGameFromStorage],
+  );
+  const initialBoardSize = initialStoredTestGame?.gridSize ?? GRID_SIZE;
   const initialGame = useMemo(() => {
     if (!isTestMode) {
-      return buildNewGame();
+      return {
+        ...buildNewGame(initialBoardSize),
+        gridSize: initialBoardSize,
+      };
     }
 
-    return getTestGameFromStorage() ?? buildTestGame();
-  }, [getTestGameFromStorage, isTestMode]);
+    return (
+      initialStoredTestGame ?? {
+        ...buildTestGame(initialBoardSize),
+        gridSize: initialBoardSize,
+      }
+    );
+  }, [initialBoardSize, initialStoredTestGame, isTestMode]);
 
+  const [boardSize, setBoardSize] = useState(() => initialGame.gridSize);
   const [cellColors, setCellColors] = useState(() => initialGame.board);
   const [startingPoint, setStartingPoint] = useState(
     () => initialGame.startingPoint,
@@ -73,8 +98,10 @@ export const VirusSpread = () => {
   );
   const [optimalSteps, setOptimalSteps] = useState<number | null>(null);
   const [stepsTaken, setStepsTaken] = useState(0);
-  const [gameStartedAt, setGameStartedAt] = useState(() => Date.now());
+  const [gameStartedAt, setGameStartedAt] = useState<number>(() => Date.now());
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [isBoardSizeMenuOpen, setIsBoardSizeMenuOpen] = useState(false);
+  const boardSizeMenuRef = useRef<HTMLDivElement | null>(null);
   const [completedTimeSeconds, setCompletedTimeSeconds] = useState<
     number | null
   >(null);
@@ -87,7 +114,7 @@ export const VirusSpread = () => {
       : isSmallScreen
         ? Math.max(280, viewportWidth - 8)
         : Math.max(280, viewportWidth - 56);
-    const targetHexSpacingPx = maxBoardWidthPx / (GRID_SIZE + 0.5);
+    const targetHexSpacingPx = maxBoardWidthPx / (boardSize + 0.5);
     const hexSizePx = Math.max(
       MIN_HEX_SIZE_PX,
       Math.min(MAX_HEX_SIZE_PX, (targetHexSpacingPx - hexGapPx) / Math.sqrt(3)),
@@ -103,20 +130,20 @@ export const VirusSpread = () => {
       hexHorizontalSpacingPx,
       hexVerticalSpacingPx,
       virusIconSizePx: Math.max(10, Math.min(24, hexSizePx * 1.2)),
-      widthPx: hexHorizontalSpacingPx * GRID_SIZE + hexHorizontalSpacingPx / 2,
-      heightPx: hexHeightPx + (GRID_SIZE - 1) * hexVerticalSpacingPx,
+      widthPx: hexHorizontalSpacingPx * boardSize + hexHorizontalSpacingPx / 2,
+      heightPx: hexHeightPx + (boardSize - 1) * hexVerticalSpacingPx,
     };
-  }, [viewportWidth]);
+  }, [boardSize, viewportWidth]);
 
   const connectedCells = useMemo(
-    () => getConnectedCells(cellColors, startingPoint),
-    [cellColors, startingPoint],
+    () => getConnectedCells(cellColors, startingPoint, undefined, boardSize),
+    [boardSize, cellColors, startingPoint],
   );
   const neighboringCells = useMemo(() => {
     const neighbors = new Set<number>();
 
     connectedCells.forEach((cellIndex) => {
-      getNeighborIndices(cellIndex).forEach((neighborIndex) => {
+      getNeighborIndices(cellIndex, boardSize).forEach((neighborIndex) => {
         if (connectedCells.has(neighborIndex)) {
           return;
         }
@@ -126,11 +153,11 @@ export const VirusSpread = () => {
     });
 
     return neighbors;
-  }, [connectedCells]);
-  const isGameCompleted = connectedCells.size === CELL_COUNT;
+  }, [boardSize, connectedCells]);
+  const isGameCompleted = connectedCells.size === cellColors.length;
   const solverGraph = useMemo(
-    () => buildComponentGraph(solverBoard, solverStart),
-    [solverBoard, solverStart],
+    () => buildComponentGraph(solverBoard, solverStart, boardSize),
+    [boardSize, solverBoard, solverStart],
   );
   const isSolvingOptimal = solverGraph !== null && optimalSteps === null;
 
@@ -168,6 +195,40 @@ export const VirusSpread = () => {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        boardSizeMenuRef.current &&
+        !boardSizeMenuRef.current.contains(event.target as Node)
+      ) {
+        setIsBoardSizeMenuOpen(false);
+      }
+    };
+
+    window.addEventListener("mousedown", handleClickOutside);
+
+    return () => window.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const createGameForSize = useCallback(
+    (nextBoardSize: number) => {
+      if (!isTestMode) {
+        return buildNewGame(nextBoardSize);
+      }
+
+      const storedTestGame = getTestGameFromStorage();
+      if (storedTestGame && storedTestGame.gridSize === nextBoardSize) {
+        return {
+          board: storedTestGame.board,
+          startingPoint: storedTestGame.startingPoint,
+        };
+      }
+
+      return buildTestGame(nextBoardSize);
+    },
+    [getTestGameFromStorage, isTestMode],
+  );
+
   const handleColorClick = (nextColor: string) => {
     if (isGameCompleted) {
       return;
@@ -179,15 +240,25 @@ export const VirusSpread = () => {
       return;
     }
 
-    const currentlyConnected = getConnectedCells(cellColors, startingPoint);
+    const currentlyConnected = getConnectedCells(
+      cellColors,
+      startingPoint,
+      undefined,
+      boardSize,
+    );
     const updatedColors = [...cellColors];
 
     currentlyConnected.forEach((cellIndex) => {
       updatedColors[cellIndex] = nextColor;
     });
 
-    const updatedConnected = getConnectedCells(updatedColors, startingPoint);
-    if (updatedConnected.size === CELL_COUNT) {
+    const updatedConnected = getConnectedCells(
+      updatedColors,
+      startingPoint,
+      undefined,
+      boardSize,
+    );
+    if (updatedConnected.size === updatedColors.length) {
       setCompletedTimeSeconds(elapsedSeconds);
       setElapsedSeconds(0);
     }
@@ -196,18 +267,17 @@ export const VirusSpread = () => {
     setStepsTaken((previousSteps) => previousSteps + 1);
   };
 
-  const handleNewGame = () => {
-    const nextGame = isTestMode
-      ? (getTestGameFromStorage() ?? buildTestGame())
-      : buildNewGame();
+  const handleNewGame = (nextBoardSize = boardSize) => {
+    const nextGame = createGameForSize(nextBoardSize);
 
+    setBoardSize(nextBoardSize);
     setCellColors(nextGame.board);
     setStartingPoint(nextGame.startingPoint);
     setSolverBoard(nextGame.board);
     setSolverStart(nextGame.startingPoint);
     setOptimalSteps(null);
     setStepsTaken(0);
-    setGameStartedAt(Date.now());
+    setGameStartedAt(() => Date.now());
     setElapsedSeconds(0);
     setCompletedTimeSeconds(null);
   };
@@ -218,13 +288,13 @@ export const VirusSpread = () => {
     setSolverBoard(solverBoard);
     setSolverStart(solverStart);
     setStepsTaken(0);
-    setGameStartedAt(Date.now());
+    setGameStartedAt(() => Date.now());
     setElapsedSeconds(0);
     setCompletedTimeSeconds(null);
   };
 
   return (
-    <div className="xl:items-startxl:gap-6 mx-auto flex w-full flex-col items-center justify-center gap-4 px-1 xl:flex-row xl:px-6">
+    <div className="mx-auto flex w-full flex-col items-center justify-center gap-4 px-1 xl:flex-row xl:items-start xl:gap-6 xl:px-6">
       <div className="flex h-fit w-full justify-center rounded-2xl border border-transparent bg-blue-950 p-0 sm:w-fit sm:border-blue-400 sm:p-4">
         <div
           className={clsx(
@@ -238,8 +308,8 @@ export const VirusSpread = () => {
           {cellColors.map((cellColor, index) => {
             const isConnected = connectedCells.has(index);
 
-            const row = Math.floor(index / GRID_SIZE);
-            const col = index % GRID_SIZE;
+            const row = Math.floor(index / boardSize);
+            const col = index % boardSize;
             const left =
               col * boardGeometry.hexHorizontalSpacingPx +
               (row % 2) * (boardGeometry.hexHorizontalSpacingPx / 2);
@@ -318,19 +388,72 @@ export const VirusSpread = () => {
                   </button>
                 ))}
               </div>
+              <div className="mt-3">
+                <label
+                  htmlFor="board-size"
+                  className="mt-4 mb-3 block text-sm font-semibold tracking-wide text-white uppercase"
+                >
+                  Board size
+                </label>
+                <div className="relative" ref={boardSizeMenuRef}>
+                  <button
+                    id="board-size"
+                    type="button"
+                    aria-haspopup="listbox"
+                    aria-expanded={isBoardSizeMenuOpen}
+                    onClick={() => setIsBoardSizeMenuOpen((open) => !open)}
+                    className="text-md flex h-10 w-full items-center justify-between rounded-md bg-blue-600 px-2 pr-3 text-white outline-none focus:ring-1 focus:ring-white"
+                  >
+                    <span>
+                      {boardSize} x {boardSize}
+                    </span>
+                    <ChevronDown
+                      className={clsx(
+                        "pointer-events-none h-6 w-6 text-white transition-transform",
+                        isBoardSizeMenuOpen ? "rotate-180" : null,
+                      )}
+                    />
+                  </button>
+                  {isBoardSizeMenuOpen ? (
+                    <div
+                      role="listbox"
+                      className="absolute z-20 mt-1 w-full overflow-hidden rounded-md border border-blue-300 bg-blue-600 shadow-lg"
+                    >
+                      {BOARD_SIZES.map((sizeOption) => (
+                        <button
+                          key={sizeOption}
+                          type="button"
+                          onClick={() => {
+                            handleNewGame(sizeOption);
+                            setIsBoardSizeMenuOpen(false);
+                          }}
+                          className={clsx(
+                            "w-full px-3 py-2 text-left text-white transition-colors",
+                            sizeOption === boardSize
+                              ? "bg-yellow-400 text-blue-950!"
+                              : "hover:bg-yellow-400 hover:text-blue-950",
+                          )}
+                        >
+                          {sizeOption} x {sizeOption}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              </div>
             </div>
             <div className="flex w-full flex-col sm:w-1/2">
               <div className="mb-4 text-xl font-bold tracking-wide text-white uppercase sm:mb-6 sm:text-2xl">
                 Stats
               </div>
-              <div className="mb-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700">
-                Time:{" "}
+              <div className="mb-2 rounded-md border border-blue-400 bg-white px-3 py-2 text-sm text-slate-700">
+                Time:
                 <span className="font-semibold">
                   {formatElapsedTime(elapsedSeconds)}
                 </span>
               </div>
 
-              <div className="mb-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700">
+              <div className="mb-2 rounded-md border border-blue-400 bg-white px-3 py-2 text-sm text-slate-700">
                 Optimum no. of steps:&nbsp;
                 {/* (BFS) */}
                 <span className="font-semibold" data-testid="optimal-steps">
@@ -342,7 +465,7 @@ export const VirusSpread = () => {
                 </span>
               </div>
 
-              <div className="mb-4 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700">
+              <div className="mb-4 rounded-md border border-blue-400 bg-white px-3 py-2 text-sm text-slate-700">
                 Steps taken:
                 <span className="font-semibold" data-testid="steps-taken">
                   {stepsTaken}
@@ -365,18 +488,18 @@ export const VirusSpread = () => {
             ) : null}
           </div>
         </div>
-        <div className="flex flex-col items-center justify-between gap-3 sm:flex-row">
+        <div className="mt-4 flex flex-col items-center justify-between gap-3 sm:flex-row">
           <button
             type="button"
             onClick={handleRestartGame}
             className="flex h-10 w-full flex-1 items-center justify-center rounded-md bg-yellow-400 px-2 text-lg text-blue-900 hover:bg-yellow-500 sm:text-xl"
           >
             <RotateCw className="mr-2 h-5 w-5" />
-            Play again
+            Restart game
           </button>
           <button
             type="button"
-            onClick={handleNewGame}
+            onClick={() => handleNewGame()}
             className="h-10 w-full flex-1 rounded-md bg-blue-600 px-2 text-lg text-white hover:bg-blue-700 sm:text-xl"
           >
             New game

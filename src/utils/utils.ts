@@ -1,6 +1,7 @@
 export const SOLVER_CHUNK_SIZE = 2000;
 export const GRID_SIZE = 20;
 export const CELL_COUNT = GRID_SIZE * GRID_SIZE;
+export const BOARD_SIZES = [10, 14, 18, 20] as const;
 export const colors = ['bg-blue-400', 'bg-green-400', 'bg-yellow-400', 'bg-violet-400'];
 
 type GameSetup = {
@@ -20,6 +21,7 @@ type ComponentGraph = {
 
 export const getRandomColor = () => colors[Math.floor(Math.random() * colors.length)];
 export const getRandomCellIndex = (cellCount: number) => Math.floor(Math.random() * cellCount);
+export const getCellCount = (gridSize: number) => gridSize * gridSize;
 export const extractColorName = (colorClass: string) =>
   colorClass.match(/-([^-]+)-/)?.[1] ?? 'Select colour';
 
@@ -32,9 +34,9 @@ export const formatElapsedTime = (seconds: number) => {
   return `${minutesPart}:${secondsPart}`;
 };
 
-export const getNeighborIndices = (index: number) => {
-  const row = Math.floor(index / GRID_SIZE);
-  const col = index % GRID_SIZE;
+export const getNeighborIndices = (index: number, gridSize = GRID_SIZE) => {
+  const row = Math.floor(index / gridSize);
+  const col = index % gridSize;
   const neighbors: number[] = [];
 
   const evenRow = row % 2 === 0;
@@ -60,11 +62,11 @@ export const getNeighborIndices = (index: number) => {
     const nextRow = row + dr;
     const nextCol = col + dc;
 
-    if (nextRow < 0 || nextRow >= GRID_SIZE || nextCol < 0 || nextCol >= GRID_SIZE) {
+    if (nextRow < 0 || nextRow >= gridSize || nextCol < 0 || nextCol >= gridSize) {
       return;
     }
 
-    neighbors.push(nextRow * GRID_SIZE + nextCol);
+    neighbors.push(nextRow * gridSize + nextCol);
   });
 
   return neighbors;
@@ -73,7 +75,8 @@ export const getNeighborIndices = (index: number) => {
 export const getConnectedCells = (
   board: string[],
   startIndex: number,
-  color = board[startIndex]
+  color = board[startIndex],
+  gridSize = GRID_SIZE
 ) => {
   const connected = new Set<number>();
   const stack = [startIndex];
@@ -87,7 +90,7 @@ export const getConnectedCells = (
 
     connected.add(current);
 
-    getNeighborIndices(current).forEach((neighbor) => {
+    getNeighborIndices(current, gridSize).forEach((neighbor) => {
       if (!connected.has(neighbor)) {
         stack.push(neighbor);
       }
@@ -97,13 +100,18 @@ export const getConnectedCells = (
   return connected;
 };
 
-export const buildComponentGraph = (board: string[], startIndex: number): ComponentGraph | null => {
+export const buildComponentGraph = (
+  board: string[],
+  startIndex: number,
+  gridSize = GRID_SIZE
+): ComponentGraph | null => {
   const colorIndexByClass = new Map(colors.map((colorClass, index) => [colorClass, index]));
-  const componentIds = new Array<number>(CELL_COUNT).fill(-1);
+  const cellCount = board.length;
+  const componentIds = new Array<number>(cellCount).fill(-1);
   const componentColor: number[] = [];
   let componentCount = 0;
 
-  for (let cell = 0; cell < CELL_COUNT; cell += 1) {
+  for (let cell = 0; cell < cellCount; cell += 1) {
     if (componentIds[cell] !== -1) {
       continue;
     }
@@ -125,7 +133,7 @@ export const buildComponentGraph = (board: string[], startIndex: number): Compon
         continue;
       }
 
-      getNeighborIndices(current).forEach((neighbor) => {
+      getNeighborIndices(current, gridSize).forEach((neighbor) => {
         if (componentIds[neighbor] !== -1 || board[neighbor] !== baseColor) {
           return;
         }
@@ -142,10 +150,10 @@ export const buildComponentGraph = (board: string[], startIndex: number): Compon
   const componentBits = Array.from({ length: componentCount }, (_, index) => 1n << BigInt(index));
   const adjacencyMasks = Array.from({ length: componentCount }, () => 0n);
 
-  for (let cell = 0; cell < CELL_COUNT; cell += 1) {
+  for (let cell = 0; cell < cellCount; cell += 1) {
     const component = componentIds[cell];
 
-    getNeighborIndices(cell).forEach((neighbor) => {
+    getNeighborIndices(cell, gridSize).forEach((neighbor) => {
       const neighborComponent = componentIds[neighbor];
 
       if (neighborComponent === component) {
@@ -280,27 +288,29 @@ export const solveExactlyAsync = (
   };
 };
 
-export const buildNewGame = (): GameSetup => {
+export const buildNewGame = (gridSize = GRID_SIZE): GameSetup => {
+  const cellCount = getCellCount(gridSize);
+
   return {
-    board: Array.from({ length: CELL_COUNT }, getRandomColor),
-    startingPoint: getRandomCellIndex(CELL_COUNT)
+    board: Array.from({ length: cellCount }, getRandomColor),
+    startingPoint: getRandomCellIndex(cellCount)
   };
 };
 
 export const TEST_STARTING_POINT = 0;
 
-export const buildTestGame = (): GameSetup => {
-  const board = Array.from({ length: CELL_COUNT }, (_, index) => {
-    const row = Math.floor(index / GRID_SIZE);
-    const col = index % GRID_SIZE;
+export const buildTestGame = (gridSize = GRID_SIZE): GameSetup => {
+  const board = Array.from({ length: getCellCount(gridSize) }, (_, index) => {
+    const row = Math.floor(index / gridSize);
+    const col = index % gridSize;
 
-    if (row < GRID_SIZE / 2 && col < GRID_SIZE / 2) {
+    if (row < gridSize / 2 && col < gridSize / 2) {
       return colors[0];
     }
-    if (row < GRID_SIZE / 2 && col >= GRID_SIZE / 2) {
+    if (row < gridSize / 2 && col >= gridSize / 2) {
       return colors[1];
     }
-    if (row >= GRID_SIZE / 2 && col < GRID_SIZE / 2) {
+    if (row >= gridSize / 2 && col < gridSize / 2) {
       return colors[2];
     }
     return colors[3];

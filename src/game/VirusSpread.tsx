@@ -10,6 +10,7 @@ import {
   extractColorName,
   formatElapsedTime,
   getConnectedCells,
+  getNeighborIndices,
   GRID_SIZE,
   solveExactlyAsync,
 } from "../utils/utils";
@@ -83,6 +84,21 @@ export const VirusSpread = () => {
     () => getConnectedCells(cellColors, startingPoint),
     [cellColors, startingPoint],
   );
+  const neighboringCells = useMemo(() => {
+    const neighbors = new Set<number>();
+
+    connectedCells.forEach((cellIndex) => {
+      getNeighborIndices(cellIndex).forEach((neighborIndex) => {
+        if (connectedCells.has(neighborIndex)) {
+          return;
+        }
+
+        neighbors.add(neighborIndex);
+      });
+    });
+
+    return neighbors;
+  }, [connectedCells]);
   const isGameCompleted = connectedCells.size === CELL_COUNT;
   const solverGraph = useMemo(
     () => buildComponentGraph(solverBoard, solverStart),
@@ -200,6 +216,9 @@ export const VirusSpread = () => {
                   "absolute flex items-center justify-center transition-colors transition-opacity",
                   cellColor,
                   isConnected ? "opacity-100" : "opacity-75",
+                  neighboringCells.has(index) && !isGameCompleted
+                    ? "cursor-pointer hover:opacity-100"
+                    : null,
                 )}
                 style={{
                   width: HEX_WIDTH_PX,
@@ -212,6 +231,16 @@ export const VirusSpread = () => {
                 data-cell-index={index}
                 data-color={extractColorName(cellColor)}
                 data-connected={isConnected ? "true" : "false"}
+                data-neighboring={
+                  neighboringCells.has(index) ? "true" : "false"
+                }
+                onClick={() => {
+                  if (!neighboringCells.has(index) || isGameCompleted) {
+                    return;
+                  }
+
+                  handleColorClick(cellColor);
+                }}
               >
                 {index === startingPoint ? (
                   <img

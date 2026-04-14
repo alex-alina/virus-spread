@@ -447,14 +447,14 @@ export const VirusSpread = () => {
                 Stats
               </div>
               <div className="mb-2 rounded-md border border-blue-400 bg-white px-3 py-2 text-sm text-slate-700">
-                Time:
+                Time:&nbsp;
                 <span className="font-semibold">
                   {formatElapsedTime(elapsedSeconds)}
                 </span>
               </div>
 
               <div className="mb-2 rounded-md border border-blue-400 bg-white px-3 py-2 text-sm text-slate-700">
-                Optimum no. of steps:&nbsp;
+                Shortest no. of steps:&nbsp;
                 {/* (BFS) */}
                 <span className="font-semibold" data-testid="optimal-steps">
                   {isSolvingOptimal
@@ -466,7 +466,7 @@ export const VirusSpread = () => {
               </div>
 
               <div className="mb-4 rounded-md border border-blue-400 bg-white px-3 py-2 text-sm text-slate-700">
-                Steps taken:
+                Steps taken:&nbsp;
                 <span className="font-semibold" data-testid="steps-taken">
                   {stepsTaken}
                 </span>

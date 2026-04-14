@@ -14,15 +14,14 @@ import {
   GRID_SIZE,
   solveExactlyAsync,
 } from "../utils/utils";
+import { RotateCw } from "lucide-react";
 
-const HEX_SIZE_PX = 18;
-const HEX_GAP_PX = 2;
-const HEX_WIDTH_PX = Math.sqrt(3) * HEX_SIZE_PX;
-const HEX_HEIGHT_PX = HEX_SIZE_PX * 2;
-const HEX_HORIZONTAL_SPACING_PX = HEX_WIDTH_PX + HEX_GAP_PX;
-const HEX_VERTICAL_SPACING_PX = HEX_SIZE_PX * 1.5 + HEX_GAP_PX;
+const MAX_HEX_SIZE_PX = 18;
+const MIN_HEX_SIZE_PX = 8;
 
 export const VirusSpread = () => {
+  const [viewportWidth, setViewportWidth] = useState(() => window.innerWidth);
+
   const isTestMode = useMemo(
     () => new URLSearchParams(window.location.search).get("test") === "1",
     [],
@@ -79,6 +78,35 @@ export const VirusSpread = () => {
   const [completedTimeSeconds, setCompletedTimeSeconds] = useState<
     number | null
   >(null);
+  const boardGeometry = useMemo(() => {
+    const isSmallScreen = viewportWidth < 640;
+    const isWideLayout = viewportWidth >= 1280;
+    const hexGapPx = isSmallScreen ? 1 : 2;
+    const maxBoardWidthPx = isWideLayout
+      ? Math.max(280, viewportWidth - 660)
+      : isSmallScreen
+        ? Math.max(280, viewportWidth - 8)
+        : Math.max(280, viewportWidth - 56);
+    const targetHexSpacingPx = maxBoardWidthPx / (GRID_SIZE + 0.5);
+    const hexSizePx = Math.max(
+      MIN_HEX_SIZE_PX,
+      Math.min(MAX_HEX_SIZE_PX, (targetHexSpacingPx - hexGapPx) / Math.sqrt(3)),
+    );
+    const hexWidthPx = Math.sqrt(3) * hexSizePx;
+    const hexHeightPx = hexSizePx * 2;
+    const hexHorizontalSpacingPx = hexWidthPx + hexGapPx;
+    const hexVerticalSpacingPx = hexSizePx * 1.5 + hexGapPx;
+
+    return {
+      hexWidthPx,
+      hexHeightPx,
+      hexHorizontalSpacingPx,
+      hexVerticalSpacingPx,
+      virusIconSizePx: Math.max(10, Math.min(24, hexSizePx * 1.2)),
+      widthPx: hexHorizontalSpacingPx * GRID_SIZE + hexHorizontalSpacingPx / 2,
+      heightPx: hexHeightPx + (GRID_SIZE - 1) * hexVerticalSpacingPx,
+    };
+  }, [viewportWidth]);
 
   const connectedCells = useMemo(
     () => getConnectedCells(cellColors, startingPoint),
@@ -129,6 +157,16 @@ export const VirusSpread = () => {
 
     return () => window.clearInterval(intervalId);
   }, [gameStartedAt, isGameCompleted]);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setViewportWidth(window.innerWidth);
+    };
+
+    window.addEventListener("resize", handleResize);
+
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   const handleColorClick = (nextColor: string) => {
     if (isGameCompleted) {
@@ -186,17 +224,15 @@ export const VirusSpread = () => {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center gap-4 xl:flex-row xl:items-start xl:gap-6">
-      <div className="h-fit w-fit rounded-2xl border border-blue-400 bg-blue-950 p-4">
+    <div className="xl:items-startxl:gap-6 mx-auto flex w-full flex-col items-center justify-center gap-4 px-1 xl:flex-row xl:px-6">
+      <div className="flex h-fit w-full justify-center rounded-2xl border border-transparent bg-blue-950 p-0 sm:w-fit sm:border-blue-400 sm:p-4">
         <div
           className={clsx(
             "0 relative overflow-visible rounded-md bg-blue-950 shadow-sm",
           )}
           style={{
-            width:
-              HEX_HORIZONTAL_SPACING_PX * GRID_SIZE +
-              HEX_HORIZONTAL_SPACING_PX / 2,
-            height: HEX_HEIGHT_PX + (GRID_SIZE - 1) * HEX_VERTICAL_SPACING_PX,
+            width: boardGeometry.widthPx,
+            height: boardGeometry.heightPx,
           }}
         >
           {cellColors.map((cellColor, index) => {
@@ -205,9 +241,9 @@ export const VirusSpread = () => {
             const row = Math.floor(index / GRID_SIZE);
             const col = index % GRID_SIZE;
             const left =
-              col * HEX_HORIZONTAL_SPACING_PX +
-              (row % 2) * (HEX_HORIZONTAL_SPACING_PX / 2);
-            const top = row * HEX_VERTICAL_SPACING_PX;
+              col * boardGeometry.hexHorizontalSpacingPx +
+              (row % 2) * (boardGeometry.hexHorizontalSpacingPx / 2);
+            const top = row * boardGeometry.hexVerticalSpacingPx;
 
             return (
               <div
@@ -221,8 +257,8 @@ export const VirusSpread = () => {
                     : null,
                 )}
                 style={{
-                  width: HEX_WIDTH_PX,
-                  height: HEX_HEIGHT_PX,
+                  width: boardGeometry.hexWidthPx,
+                  height: boardGeometry.hexHeightPx,
                   left,
                   top,
                   clipPath:
@@ -246,7 +282,10 @@ export const VirusSpread = () => {
                   <img
                     src={happyVirus}
                     alt="happy computer virus"
-                    className="h-6 w-6"
+                    style={{
+                      width: boardGeometry.virusIconSizePx,
+                      height: boardGeometry.virusIconSizePx,
+                    }}
                   />
                 ) : null}
               </div>
@@ -255,14 +294,14 @@ export const VirusSpread = () => {
         </div>
       </div>
 
-      <div className="flex w-full flex-col justify-between rounded-2xl border border-blue-400 bg-blue-950 p-8 shadow-sm md:w-xl">
+      <div className="mx-auto flex w-full flex-col justify-between self-stretch rounded-2xl border border-transparent bg-blue-950 p-4 shadow-sm sm:border-blue-400 sm:p-8 md:w-xl xl:m-0 xl:w-xl">
         <div>
-          <div className="flex">
-            <div className="flex w-1/2 flex-col">
-              <div className="mb-6 text-2xl font-bold tracking-wide text-white uppercase">
+          <div className="flex flex-col gap-6 sm:flex-row sm:gap-4">
+            <div className="flex w-full flex-col sm:w-1/2">
+              <div className="mb-4 text-xl font-bold tracking-wide text-white uppercase sm:mb-6 sm:text-2xl">
                 Controls
               </div>
-              <div className="flex flex-wrap gap-6">
+              <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-wrap sm:gap-6">
                 {colors.map((colorClass) => (
                   <button
                     key={colorClass}
@@ -271,7 +310,7 @@ export const VirusSpread = () => {
                     disabled={isGameCompleted}
                     data-color={colorClass}
                     className={clsx(
-                      "h-10 w-20 rounded-md text-xl text-gray-950 capitalize hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-60",
+                      "h-10 w-full rounded-md text-base text-gray-950 capitalize hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-60 sm:w-20 sm:text-xl",
                       colorClass,
                     )}
                   >
@@ -280,8 +319,8 @@ export const VirusSpread = () => {
                 ))}
               </div>
             </div>
-            <div className="flex w-1/2 flex-col">
-              <div className="mb-6 text-2xl font-bold tracking-wide text-white uppercase">
+            <div className="flex w-full flex-col sm:w-1/2">
+              <div className="mb-4 text-xl font-bold tracking-wide text-white uppercase sm:mb-6 sm:text-2xl">
                 Stats
               </div>
               <div className="mb-2 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700">
@@ -319,25 +358,26 @@ export const VirusSpread = () => {
                   className="my-6 flex w-full justify-center rounded-md border border-emerald-700 bg-emerald-100 px-3 py-2 text-xl font-semibold text-emerald-900"
                   data-testid="game-completed"
                 >
-                  Game completed in:{" "}
+                  Game completed in:
                   {formatElapsedTime(completedTimeSeconds ?? 0)}
                 </div>
               </div>
             ) : null}
           </div>
         </div>
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-col items-center justify-between gap-3 sm:flex-row">
           <button
             type="button"
             onClick={handleRestartGame}
-            className="h-10 flex-1 rounded-md bg-yellow-400 px-2 text-xl text-blue-900 hover:bg-yellow-500"
+            className="flex h-10 w-full flex-1 items-center justify-center rounded-md bg-yellow-400 px-2 text-lg text-blue-900 hover:bg-yellow-500 sm:text-xl"
           >
-            Restart game
+            <RotateCw className="mr-2 h-5 w-5" />
+            Play again
           </button>
           <button
             type="button"
             onClick={handleNewGame}
-            className="h-10 flex-1 rounded-md bg-blue-600 px-2 text-xl text-white hover:bg-blue-700"
+            className="h-10 w-full flex-1 rounded-md bg-blue-600 px-2 text-lg text-white hover:bg-blue-700 sm:text-xl"
           >
             New game
           </button>

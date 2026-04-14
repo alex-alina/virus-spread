@@ -3,7 +3,7 @@ import { VirusSpread } from "./game/VirusSpread";
 
 function App() {
   return (
-    <div className="min-h-screen w-full bg-blue-950 py-10">
+    <div className="min-h-dvh w-full bg-blue-950 py-10">
       <VirusSpread />
     </div>
   );

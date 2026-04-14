@@ -163,7 +163,6 @@ export const VirusSpread = () => {
     setStartingPoint(solverStart);
     setSolverBoard(solverBoard);
     setSolverStart(solverStart);
-    setOptimalSteps(null);
     setStepsTaken(0);
     setGameStartedAt(Date.now());
     setElapsedSeconds(0);

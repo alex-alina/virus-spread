@@ -114,4 +114,27 @@ describe("VirusSpreadHex replay game", () => {
       extractColorName(colors[2]),
     );
   });
+
+  it("keeps displaying optimum steps after replaying", async () => {
+    seedTestGame();
+    enableTestMode();
+
+    render(<VirusSpread />);
+    await act(async () => {
+      jest.runOnlyPendingTimers();
+    });
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+
+    const optimalStepsLabel = screen.getByTestId("optimal-steps");
+    expect(optimalStepsLabel.textContent).toBe("1");
+
+    await user.click(
+      screen.getByRole("button", {
+        name: new RegExp(extractColorName(colors[1]), "i"),
+      }),
+    );
+    await user.click(screen.getByRole("button", { name: /replay game/i }));
+
+    expect(screen.getByTestId("optimal-steps").textContent).toBe("1");
+  });
 });

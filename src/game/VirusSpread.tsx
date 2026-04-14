@@ -186,8 +186,8 @@ export const VirusSpread = () => {
   };
 
   return (
-    <div className="flex flex-col justify-center gap-4 md:flex-row md:gap-6">
-      <div className="h-fit w-fit rounded-2xl border bg-blue-950 p-4">
+    <div className="flex flex-col items-center justify-center gap-4 xl:flex-row xl:items-start xl:gap-6">
+      <div className="h-fit w-fit rounded-2xl border border-blue-400 bg-blue-950 p-4">
         <div
           className={clsx(
             "0 relative overflow-visible rounded-md bg-blue-950 shadow-sm",
@@ -213,7 +213,7 @@ export const VirusSpread = () => {
               <div
                 key={index}
                 className={clsx(
-                  "absolute flex items-center justify-center transition-colors transition-opacity",
+                  "absolute flex items-center justify-center transition-opacity",
                   cellColor,
                   isConnected ? "opacity-100" : "opacity-75",
                   neighboringCells.has(index) && !isGameCompleted
@@ -255,7 +255,7 @@ export const VirusSpread = () => {
         </div>
       </div>
 
-      <div className="flex w-full flex-col justify-between rounded-md border bg-blue-950 p-8 shadow-sm md:w-xl">
+      <div className="flex w-full flex-col justify-between rounded-2xl border border-blue-400 bg-blue-950 p-8 shadow-sm md:w-xl">
         <div>
           <div className="flex">
             <div className="flex w-1/2 flex-col">
@@ -304,7 +304,7 @@ export const VirusSpread = () => {
               </div>
 
               <div className="mb-4 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700">
-                Steps taken:{" "}
+                Steps taken:
                 <span className="font-semibold" data-testid="steps-taken">
                   {stepsTaken}
                 </span>

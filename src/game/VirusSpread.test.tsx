@@ -42,8 +42,8 @@ afterEach(() => {
   window.history.pushState({}, "", "/");
 });
 
-describe("VirusSpreadHex replay game", () => {
-  it("restores the initial board when replaying", async () => {
+describe("VirusSpreadHex restart game", () => {
+  it("restores the initial board when restarting", async () => {
     seedTestGame();
     enableTestMode();
 
@@ -71,13 +71,13 @@ describe("VirusSpreadHex replay game", () => {
       extractColorName(colors[1]),
     );
 
-    await user.click(screen.getByRole("button", { name: /replay game/i }));
+    await user.click(screen.getByRole("button", { name: /restart game/i }));
     expect(startCell.getAttribute("data-color")).toBe(
       extractColorName(colors[0]),
     );
   });
 
-  it("replays the current game after starting a new game", async () => {
+  it("restarts the current game after starting a new game", async () => {
     seedTestGame(colors[0], colors[1]);
     enableTestMode();
 
@@ -109,13 +109,13 @@ describe("VirusSpreadHex replay game", () => {
       extractColorName(colors[1]),
     );
 
-    await user.click(screen.getByRole("button", { name: /replay game/i }));
+    await user.click(screen.getByRole("button", { name: /restart game/i }));
     expect(startCell.getAttribute("data-color")).toBe(
       extractColorName(colors[2]),
     );
   });
 
-  it("keeps displaying optimum steps after replaying", async () => {
+  it("keeps displaying optimum steps after restarting", async () => {
     seedTestGame();
     enableTestMode();
 
@@ -133,7 +133,7 @@ describe("VirusSpreadHex replay game", () => {
         name: new RegExp(extractColorName(colors[1]), "i"),
       }),
     );
-    await user.click(screen.getByRole("button", { name: /replay game/i }));
+    await user.click(screen.getByRole("button", { name: /restart game/i }));
 
     expect(screen.getByTestId("optimal-steps").textContent).toBe("1");
   });

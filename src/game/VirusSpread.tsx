@@ -158,7 +158,7 @@ export const VirusSpread = () => {
     setCompletedTimeSeconds(null);
   };
 
-  const handleReplayGame = () => {
+  const handleRestartGame = () => {
     setCellColors(solverBoard);
     setStartingPoint(solverStart);
     setSolverBoard(solverBoard);
@@ -300,10 +300,10 @@ export const VirusSpread = () => {
         <div className="flex items-center justify-between gap-3">
           <button
             type="button"
-            onClick={handleReplayGame}
+            onClick={handleRestartGame}
             className="h-10 flex-1 rounded-md bg-yellow-400 px-2 text-xl text-blue-900 hover:bg-yellow-500"
           >
-            Replay game
+            Restart game
           </button>
           <button
             type="button"

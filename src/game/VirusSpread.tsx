@@ -16,6 +16,7 @@ import {
 } from "../utils/utils";
 import { ChevronDown, RotateCw } from "lucide-react";
 import hexLogoTwo from "../assets/logo_hex.png";
+import hexLogo from "../assets/hex-games-logo.png";
 
 const MAX_HEX_SIZE_PX = 18;
 const MIN_HEX_SIZE_PX = 8;
@@ -354,7 +355,7 @@ export const VirusSpread = () => {
                     handleColorClick(cellColor);
                   }}
                 >
-                  {index === startingPoint ? (
+                  {isConnected ? (
                     <img src={happyVirus} alt="happy computer virus" />
                   ) : null}
                 </div>
@@ -521,9 +522,13 @@ export const VirusSpread = () => {
           your morning coffee.
         </p>
         <p>
-          Just don’t get angry if your virus is slower than the machine’s 😅
+          Just don’t get angry if your virus is slower than the Machine’s 😅
         </p>
-        <img src={hexLogoTwo} className="mx-auto w-60" />
+        <div className="mx-auto mt-6 flex w-fit items-center">
+          <img src={hexLogoTwo} className="mr-6 h-20 w-50" />
+
+          <img src={hexLogo} className="h-30 w-45" />
+        </div>
       </div>
     </>
   );

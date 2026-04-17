@@ -141,6 +141,7 @@ describe("VirusSpreadHex replay game", () => {
 
     expect(screen.getByTestId("optimal-steps").textContent).toBe("1");
   });
+
 });
 
 describe("VirusSpreadHex new UI controls", () => {

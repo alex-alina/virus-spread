@@ -288,7 +288,7 @@ export const VirusSpread = () => {
     setCompletedTimeSeconds(null);
   };
 
-  const handleRestartGame = () => {
+  const handleReplayGame = () => {
     setCellColors(solverBoard);
     setStartingPoint(solverStart);
     setSolverBoard(solverBoard);
@@ -491,11 +491,11 @@ export const VirusSpread = () => {
           <div className="mt-4 flex flex-col items-center justify-between gap-3 sm:flex-row">
             <button
               type="button"
-              onClick={handleRestartGame}
+              onClick={handleReplayGame}
               className="flex h-10 w-full flex-1 items-center justify-center rounded-md bg-yellow-400 px-2 text-lg text-blue-900 hover:bg-yellow-500 sm:text-xl"
             >
               <RotateCw className="mr-2 h-5 w-5" />
-              Restart game
+              Replay game
             </button>
             <button
               type="button"
@@ -514,7 +514,7 @@ export const VirusSpread = () => {
         <p>
           Help the little rascal infiltrate the neighbouring cells, like the
           chameleon he is and see if you can match the shortest number of steps
-          that will conquer the world, well, the tiny virus’s small “world”.
+          that will conquer the world, well, the tiny viru&apos;s small “world”.
         </p>
         <p className="my-5">
           You can use it to practice spatial reasoning and predictive planning
@@ -522,7 +522,8 @@ export const VirusSpread = () => {
           your morning coffee.
         </p>
         <p>
-          Just don’t get angry if your virus is slower than the Machine’s 😅
+          Just don&apos;t get angry if your virus is slower than the
+          Machine&apos;s 😅
         </p>
         <div className="mx-auto mt-6 flex w-fit items-center">
           <img src={hexLogoTwo} className="mr-6 h-20 w-50" />

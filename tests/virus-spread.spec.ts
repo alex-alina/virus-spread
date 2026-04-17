@@ -39,7 +39,7 @@ const buildSeededGame = (
   startingPoint: 0,
 });
 
-const buildRestartBoard = (cellCount: number, colors: string[]) =>
+const buildReplayBoard = (cellCount: number, colors: string[]) =>
   Array.from({ length: cellCount }, (_, index) =>
     index === 0 ? colors[0] : colors[1],
   );
@@ -256,7 +256,7 @@ const solveAndAssertSeeded = async (
   );
 };
 
-const restartAndAssert = async (
+const replayAndAssert = async (
   page: import("@playwright/test").Page,
   testInfo: TestInfo,
   {
@@ -271,7 +271,7 @@ const restartAndAssert = async (
     board?: string[];
   },
 ) => {
-  const seededBoard = board ?? buildRestartBoard(cellCount, colors);
+  const seededBoard = board ?? buildReplayBoard(cellCount, colors);
 
   await page.addInitScript(
     ({ seededBoard: storedBoard }: { seededBoard: string[] }) => {
@@ -299,7 +299,7 @@ const restartAndAssert = async (
     nextColor.match(/-([^-]+)-/)?.[1] ?? "",
   );
 
-  await page.getByRole("button", { name: /restart game/i }).click();
+  await page.getByRole("button", { name: /replay game/i }).click();
   await expect(startCell).toHaveAttribute(
     "data-color",
     seededBoard[0].match(/-([^-]+)-/)?.[1] ?? "",
@@ -330,19 +330,19 @@ test("solves virus spread on a complex seeded board using the optimal number of 
   });
 });
 
-test("restart game restores the initial board", async ({ page }, testInfo) => {
-  await restartAndAssert(page, testInfo, {
+test("replay game restores the initial board", async ({ page }, testInfo) => {
+  await replayAndAssert(page, testInfo, {
     path: "/virus-spread?test=1",
     colors: hexColors,
     cellCount: HEX_CELL_COUNT,
   });
 });
 
-test("restart game restores the initial board on a complex seeded board", async ({
+test("replay game restores the initial board on a complex seeded board", async ({
   page,
 }, testInfo) => {
   const complexBoard = buildSeededBoard(2024, HEX_CELL_COUNT, hexColors);
-  await restartAndAssert(page, testInfo, {
+  await replayAndAssert(page, testInfo, {
     path: "/virus-spread?test=1",
     colors: hexColors,
     cellCount: HEX_CELL_COUNT,

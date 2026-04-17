@@ -100,6 +100,7 @@ export const VirusSpread = () => {
   );
   const [optimalSteps, setOptimalSteps] = useState<number | null>(null);
   const [stepsTaken, setStepsTaken] = useState(0);
+  const [replayCount, setReplayCount] = useState(0);
   const [gameStartedAt, setGameStartedAt] = useState<number>(() => Date.now());
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [isBoardSizeMenuOpen, setIsBoardSizeMenuOpen] = useState(false);
@@ -283,6 +284,7 @@ export const VirusSpread = () => {
     setSolverStart(nextGame.startingPoint);
     setOptimalSteps(null);
     setStepsTaken(0);
+    setReplayCount(0);
     setGameStartedAt(() => Date.now());
     setElapsedSeconds(0);
     setCompletedTimeSeconds(null);
@@ -294,6 +296,7 @@ export const VirusSpread = () => {
     setSolverBoard(solverBoard);
     setSolverStart(solverStart);
     setStepsTaken(0);
+    setReplayCount((previousCount) => previousCount + 1);
     setGameStartedAt(() => Date.now());
     setElapsedSeconds(0);
     setCompletedTimeSeconds(null);
@@ -470,6 +473,9 @@ export const VirusSpread = () => {
                   <span className="font-semibold" data-testid="steps-taken">
                     {stepsTaken}
                   </span>
+                </div>
+                <div className="text-sm text-white">
+                  Game replayed {replayCount} times.
                 </div>
               </div>
             </div>

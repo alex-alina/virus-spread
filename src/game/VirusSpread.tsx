@@ -15,7 +15,7 @@ import {
   solveExactlyAsync,
 } from "../utils/utils";
 import { ChevronDown, RotateCw } from "lucide-react";
-import hexLogoTwo from "../assets/logo_hex.png";
+// import hexLogoTwo from "../assets/logo_hex.png";
 import hexLogo from "../assets/hex-games-logo.png";
 
 const MAX_HEX_SIZE_PX = 18;
@@ -100,6 +100,7 @@ export const VirusSpread = () => {
   );
   const [optimalSteps, setOptimalSteps] = useState<number | null>(null);
   const [stepsTaken, setStepsTaken] = useState(0);
+  const [stepHistory, setStepHistory] = useState<string[]>([]);
   const [replayCount, setReplayCount] = useState(0);
   const [gameStartedAt, setGameStartedAt] = useState<number>(() => Date.now());
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
@@ -272,6 +273,7 @@ export const VirusSpread = () => {
 
     setCellColors(updatedColors);
     setStepsTaken((previousSteps) => previousSteps + 1);
+    setStepHistory((previousHistory) => [...previousHistory, nextColor]);
   };
 
   const handleNewGame = (nextBoardSize = boardSize) => {
@@ -284,6 +286,7 @@ export const VirusSpread = () => {
     setSolverStart(nextGame.startingPoint);
     setOptimalSteps(null);
     setStepsTaken(0);
+    setStepHistory([]);
     setReplayCount(0);
     setGameStartedAt(() => Date.now());
     setElapsedSeconds(0);
@@ -296,10 +299,55 @@ export const VirusSpread = () => {
     setSolverBoard(solverBoard);
     setSolverStart(solverStart);
     setStepsTaken(0);
+    setStepHistory([]);
     setReplayCount((previousCount) => previousCount + 1);
     setGameStartedAt(() => Date.now());
     setElapsedSeconds(0);
     setCompletedTimeSeconds(null);
+  };
+
+  const handleStepJump = (targetStep: number) => {
+    const clampedStep = Math.max(0, Math.min(targetStep, stepHistory.length));
+    const truncatedHistory = stepHistory.slice(0, clampedStep);
+    const jumpedBoard = [...solverBoard];
+
+    truncatedHistory.forEach((stepColor) => {
+      const connectedAtStep = getConnectedCells(
+        jumpedBoard,
+        solverStart,
+        undefined,
+        boardSize,
+      );
+
+      connectedAtStep.forEach((cellIndex) => {
+        jumpedBoard[cellIndex] = stepColor;
+      });
+    });
+
+    const connectedAfterJump = getConnectedCells(
+      jumpedBoard,
+      solverStart,
+      undefined,
+      boardSize,
+    );
+    const isCompletedAfterJump = connectedAfterJump.size === jumpedBoard.length;
+
+    setCellColors(jumpedBoard);
+    setStartingPoint(solverStart);
+    setStepsTaken(clampedStep);
+    setStepHistory(truncatedHistory);
+
+    if (isCompletedAfterJump) {
+      setCompletedTimeSeconds(
+        completedTimeSeconds === null ? elapsedSeconds : completedTimeSeconds,
+      );
+      setElapsedSeconds(0);
+      return;
+    }
+
+    setCompletedTimeSeconds(null);
+    setElapsedSeconds(0);
+    setGameStartedAt(() => Date.now());
   };
 
   return (
@@ -367,9 +415,9 @@ export const VirusSpread = () => {
           </div>
         </div>
 
-        <div className="mx-auto flex w-full flex-col justify-between self-stretch rounded-2xl border border-transparent bg-blue-950 p-4 shadow-sm sm:border-blue-400 sm:p-8 md:w-xl xl:m-0 xl:w-xl">
+        <div className="mx-auto flex w-full flex-col justify-between self-stretch rounded-2xl border border-transparent bg-blue-950 p-4 shadow-sm sm:border-blue-400 sm:p-7 md:w-xl xl:m-0 xl:w-xl">
           <div>
-            <div className="flex flex-col gap-6 sm:flex-row sm:gap-4">
+            <div className="flex flex-col gap-6 sm:flex-row">
               <div className="flex w-full flex-col sm:w-1/2">
                 <div className="mb-4 text-xl font-bold tracking-wide text-white uppercase sm:mb-6 sm:text-2xl">
                   Controls
@@ -394,7 +442,7 @@ export const VirusSpread = () => {
                 <div className="mt-3">
                   <label
                     htmlFor="board-size"
-                    className="mt-4 mb-3 block text-sm font-semibold tracking-wide text-white uppercase"
+                    className="mt-4 mb-2 block text-lg tracking-wide text-white lg:mt-15"
                   >
                     Board size
                   </label>
@@ -449,15 +497,15 @@ export const VirusSpread = () => {
                 <div className="mb-4 text-xl font-bold tracking-wide text-white uppercase sm:mb-6 sm:text-2xl">
                   Stats
                 </div>
-                <div className="mb-2 rounded-md border border-blue-400 bg-white px-3 py-2 text-sm text-slate-700">
+                <div className="mb-3 rounded-md border border-blue-400 px-3 py-2 text-lg text-white">
                   Time:&nbsp;
                   <span className="font-semibold">
                     {formatElapsedTime(elapsedSeconds)}
                   </span>
                 </div>
 
-                <div className="mb-2 rounded-md border border-blue-400 bg-white px-3 py-2 text-sm text-slate-700">
-                  Shortest no. of steps:&nbsp;
+                <div className="mb-3 rounded-md border border-blue-400 px-3 py-2 text-lg text-white">
+                  Optimal moves:&nbsp;
                   {/* (BFS) */}
                   <span className="font-semibold" data-testid="optimal-steps">
                     {isSolvingOptimal
@@ -468,15 +516,54 @@ export const VirusSpread = () => {
                   </span>
                 </div>
 
-                <div className="mb-4 rounded-md border border-blue-400 bg-white px-3 py-2 text-sm text-slate-700">
-                  Steps taken:&nbsp;
+                <div className="mb-3 rounded-md border border-blue-400 px-3 py-2 text-lg text-white">
+                  Move count:&nbsp;
                   <span className="font-semibold" data-testid="steps-taken">
                     {stepsTaken}
                   </span>
                 </div>
-                <div className="text-sm text-white">
-                  Game replayed {replayCount} times.
+                {/* <div className="text-md mt-8 mb-3 font-semibold text-white">
+                  Number of moves made:&nbsp;
+                  <span className="font-semibold" data-testid="steps-taken">
+                    {stepsTaken}
+                  </span>
+                </div> */}
+                <div className="mb-2 text-lg text-white">Back to move:</div>
+
+                <div className="mb-4 rounded-md border border-blue-400 bg-blue-950 px-3 py-2">
+                  <div className="flex flex-wrap gap-2">
+                    {stepHistory.length === 0 && (
+                      <div className="flex h-8 w-8 items-center justify-center rounded-full border border-blue-400 bg-transparent text-sm font-semibold text-white">
+                        1
+                      </div>
+                    )}
+                    {stepHistory.map((stepColor, index) => (
+                      <button
+                        key={`${stepColor}-${index}`}
+                        type="button"
+                        onClick={() => handleStepJump(index + 1)}
+                        aria-label={`Go to step ${index + 1}`}
+                        title={`Go to step ${index + 1}`}
+                        className={clsx(
+                          "flex h-8 w-8 cursor-pointer items-center justify-center rounded-full text-lg font-semibold text-blue-950 transition-opacity hover:opacity-80",
+                          stepColor,
+                        )}
+                      >
+                        {index + 1}
+                      </button>
+                    ))}
+                  </div>
                 </div>
+                <div className="mb-3 rounded-md border border-blue-400 px-3 py-2 text-lg text-white">
+                  Game replayed&nbsp;
+                  <span className="font-semibold">{replayCount}</span>&nbsp;
+                  times.
+                </div>
+                {replayCount >= 3 && (
+                  <div className="mb-3 rounded-md border border-blue-400 px-3 py-2 text-lg text-white">
+                    Cheet sheet
+                  </div>
+                )}
               </div>
             </div>
 
@@ -484,11 +571,11 @@ export const VirusSpread = () => {
               {isGameCompleted ? (
                 <div className="space-y-2">
                   <div
-                    className="my-6 flex w-full justify-center rounded-md border border-emerald-700 bg-emerald-100 px-3 py-2 text-xl font-semibold text-emerald-900"
+                    className="my-6 flex w-full justify-center rounded-md border border-green-400 px-3 py-2 text-lg text-white"
                     data-testid="game-completed"
                   >
-                    Game completed in:
-                    {formatElapsedTime(completedTimeSeconds ?? 0)}
+                    Game completed in&nbsp;
+                    {formatElapsedTime(completedTimeSeconds ?? 0)}&nbsp;min
                   </div>
                 </div>
               ) : null}
@@ -520,7 +607,8 @@ export const VirusSpread = () => {
         <p>
           Help the little rascal infiltrate the neighbouring cells, like the
           chameleon he is and see if you can match the shortest number of steps
-          that will conquer the world, well, the tiny viru&apos;s small “world”.
+          that will conquer the world, well, the tiny virus&apos;s small
+          “world”.
         </p>
         <p className="my-5">
           You can use it to practice spatial reasoning and predictive planning
@@ -531,8 +619,8 @@ export const VirusSpread = () => {
           Just don&apos;t get angry if your virus is slower than the
           Machine&apos;s 😅
         </p>
-        <div className="mx-auto mt-6 flex w-fit items-center">
-          <img src={hexLogoTwo} className="mr-6 h-20 w-50" />
+        <div className="mx-auto mt-10 flex w-fit items-center">
+          {/* <img src={hexLogoTwo} className="mr-6 h-20 w-50" /> */}
 
           <img src={hexLogo} className="h-30 w-45" />
         </div>

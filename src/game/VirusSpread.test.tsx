@@ -10,7 +10,12 @@ import {
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { VirusSpread } from "./VirusSpread";
-import { GRID_SIZE, colors, extractColorName } from "../utils/utils";
+import {
+  GRID_SIZE,
+  buildTestGame,
+  colors,
+  extractColorName,
+} from "../utils/utils";
 
 beforeEach(() => {
   jest.useFakeTimers();
@@ -37,6 +42,55 @@ const seedTestGame = (
   return board;
 };
 
+const seedBoardState = (board: string[], startIndex: number, gridSize: number) => {
+  window.localStorage.setItem(
+    "virus-spread-seeded",
+    JSON.stringify({ board, startIndex, gridSize }),
+  );
+};
+
+const seedReplayGame = (gridSize = 10) => {
+  const game = buildTestGame(gridSize);
+  seedBoardState(game.board, game.startingPoint, gridSize);
+};
+
+const seedVariedGame = (startColor: string, gridSize = 10) => {
+  const palette = [startColor, ...colors.filter((color) => color !== startColor)];
+  const board = Array.from(
+    { length: gridSize * gridSize },
+    (_, index) => palette[index % palette.length],
+  );
+  board[0] = startColor;
+  seedBoardState(board, 0, gridSize);
+};
+
+const makeThreeMoves = async (
+  user: ReturnType<typeof userEvent.setup>,
+  startCell: Element,
+) => {
+  const colorNames = colors.map((colorClass) => extractColorName(colorClass));
+  let finalColorName = startCell.getAttribute("data-color") ?? "";
+
+  for (let moveIndex = 0; moveIndex < 3; moveIndex += 1) {
+    const currentColorIndex = colorNames.indexOf(finalColorName);
+    const nextColor =
+      colors[(currentColorIndex + 1 + colors.length) % colors.length];
+
+    if (!nextColor) {
+      throw new Error("Expected an available color for move");
+    }
+
+    await user.click(
+      screen.getByRole("button", {
+        name: new RegExp(extractColorName(nextColor), "i"),
+      }),
+    );
+    finalColorName = extractColorName(nextColor);
+  }
+
+  return finalColorName;
+};
+
 const enableTestMode = () => {
   window.history.pushState({}, "", "/?test=1");
 };
@@ -48,7 +102,7 @@ afterEach(() => {
 
 describe("VirusSpreadHex replay game", () => {
   it("restores the initial board when replaying", async () => {
-    seedTestGame();
+    seedReplayGame();
     enableTestMode();
 
     const { container } = render(<VirusSpread />);
@@ -66,23 +120,23 @@ describe("VirusSpreadHex replay game", () => {
       extractColorName(colors[0]),
     );
 
-    await user.click(
-      screen.getByRole("button", {
-        name: new RegExp(extractColorName(colors[1]), "i"),
-      }),
-    );
-    expect(startCell.getAttribute("data-color")).toBe(
-      extractColorName(colors[1]),
-    );
+    const replayButton = screen.getByRole("button", { name: /replay game/i });
+    expect(replayButton).toBeDisabled();
 
-    await user.click(screen.getByRole("button", { name: /replay game/i }));
+    const finalColor = await makeThreeMoves(user, startCell);
+    expect(startCell.getAttribute("data-color")).toBe(
+      finalColor,
+    );
+    expect(replayButton).toBeEnabled();
+
+    await user.click(replayButton);
     expect(startCell.getAttribute("data-color")).toBe(
       extractColorName(colors[0]),
     );
   });
 
   it("replays the current game after starting a new game", async () => {
-    seedTestGame(colors[0], colors[1]);
+    seedReplayGame();
     enableTestMode();
 
     const { container } = render(<VirusSpread />);
@@ -97,30 +151,30 @@ describe("VirusSpreadHex replay game", () => {
       throw new Error("Expected start cell to exist");
     }
 
-    seedTestGame(colors[2], colors[3]);
+    seedVariedGame(colors[2]);
     await user.click(screen.getByRole("button", { name: /new game/i }));
 
     expect(startCell.getAttribute("data-color")).toBe(
       extractColorName(colors[2]),
     );
 
-    await user.click(
-      screen.getByRole("button", {
-        name: new RegExp(extractColorName(colors[1]), "i"),
-      }),
-    );
-    expect(startCell.getAttribute("data-color")).toBe(
-      extractColorName(colors[1]),
-    );
+    const replayButton = screen.getByRole("button", { name: /replay game/i });
+    expect(replayButton).toBeDisabled();
 
-    await user.click(screen.getByRole("button", { name: /replay game/i }));
+    const finalColor = await makeThreeMoves(user, startCell);
+    expect(startCell.getAttribute("data-color")).toBe(
+      finalColor,
+    );
+    expect(replayButton).toBeEnabled();
+
+    await user.click(replayButton);
     expect(startCell.getAttribute("data-color")).toBe(
       extractColorName(colors[2]),
     );
   });
 
   it("keeps displaying optimum steps after replaying", async () => {
-    seedTestGame();
+    seedReplayGame();
     enableTestMode();
 
     render(<VirusSpread />);
@@ -130,16 +184,18 @@ describe("VirusSpreadHex replay game", () => {
     const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
 
     const optimalStepsLabel = screen.getByTestId("optimal-steps");
-    expect(optimalStepsLabel.textContent).toBe("1");
+    expect(optimalStepsLabel.textContent).toBe("3");
 
-    await user.click(
-      screen.getByRole("button", {
-        name: new RegExp(extractColorName(colors[1]), "i"),
-      }),
-    );
+    const startCell = document.querySelector('[data-cell-index="0"]');
+    expect(startCell).not.toBeNull();
+    if (!startCell) {
+      throw new Error("Expected start cell to exist");
+    }
+
+    await makeThreeMoves(user, startCell);
     await user.click(screen.getByRole("button", { name: /replay game/i }));
 
-    expect(screen.getByTestId("optimal-steps").textContent).toBe("1");
+    expect(screen.getByTestId("optimal-steps").textContent).toBe("3");
   });
 
 });

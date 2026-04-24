@@ -11,6 +11,7 @@ type SolverGraph = NonNullable<ReturnType<typeof buildHexComponentGraph>>;
 type SeededStoragePayload = {
   board: string[];
   startIndex: number;
+  gridSize?: number;
 };
 
 const buildSeededBoard = (
@@ -40,9 +41,13 @@ const buildSeededGame = (
 });
 
 const buildReplayBoard = (cellCount: number, colors: string[]) =>
-  Array.from({ length: cellCount }, (_, index) =>
-    index === 0 ? colors[0] : colors[1],
+  Array.from(
+    { length: cellCount },
+    (_, index) => colors[index % colors.length] ?? colors[0],
   );
+
+const extractColorName = (colorClass: string) =>
+  colorClass.match(/-([^-]+)-/)?.[1] ?? "";
 
 const buildOptimalSequence = (
   board: string[],
@@ -232,13 +237,17 @@ const solveAndAssertSeeded = async (
   );
 
   await page.addInitScript(
-    ({ board, startIndex }: SeededStoragePayload) => {
+    ({ board, startIndex, gridSize }: SeededStoragePayload) => {
       window.localStorage.setItem(
         "virus-spread-seeded",
-        JSON.stringify({ board, startIndex }),
+        JSON.stringify({ board, startIndex, gridSize }),
       );
     },
-    { board: seededGame.board, startIndex: seededGame.startingPoint },
+    {
+      board: seededGame.board,
+      startIndex: seededGame.startingPoint,
+      gridSize: Math.sqrt(cellCount),
+    },
   );
 
   await page.goto(toUrl(path, testInfo));
@@ -274,13 +283,19 @@ const replayAndAssert = async (
   const seededBoard = board ?? buildReplayBoard(cellCount, colors);
 
   await page.addInitScript(
-    ({ seededBoard: storedBoard }: { seededBoard: string[] }) => {
+    ({
+      seededBoard: storedBoard,
+      gridSize,
+    }: {
+      seededBoard: string[];
+      gridSize: number;
+    }) => {
       window.localStorage.setItem(
         "virus-spread-seeded",
-        JSON.stringify({ board: storedBoard, startIndex: 0 }),
+        JSON.stringify({ board: storedBoard, startIndex: 0, gridSize }),
       );
     },
-    { seededBoard },
+    { seededBoard, gridSize: Math.sqrt(cellCount) },
   );
 
   await page.goto(toUrl(path, testInfo));
@@ -288,21 +303,26 @@ const replayAndAssert = async (
   const startCell = page.locator('[data-cell-index="0"]');
   await expect(startCell).toHaveAttribute(
     "data-color",
-    seededBoard[0].match(/-([^-]+)-/)?.[1] ?? "",
+    extractColorName(seededBoard[0] ?? ""),
   );
 
-  const nextColor =
-    colors.find((color) => color !== seededBoard[0]) ?? colors[0];
-  await page.locator(`button[data-color="${nextColor}"]`).click();
-  await expect(startCell).toHaveAttribute(
-    "data-color",
-    nextColor.match(/-([^-]+)-/)?.[1] ?? "",
-  );
+  const replayButton = page.getByRole("button", { name: /replay game/i });
+  await expect(replayButton).toBeDisabled();
 
-  await page.getByRole("button", { name: /replay game/i }).click();
+  for (let moveIndex = 0; moveIndex < 3; moveIndex += 1) {
+    const currentColorName = await startCell.getAttribute("data-color");
+    const nextColor =
+      colors.find((color) => extractColorName(color) !== currentColorName) ??
+      colors[0];
+    await page.locator(`button[data-color="${nextColor}"]`).click();
+  }
+
+  await expect(replayButton).toBeEnabled();
+
+  await replayButton.click();
   await expect(startCell).toHaveAttribute(
     "data-color",
-    seededBoard[0].match(/-([^-]+)-/)?.[1] ?? "",
+    extractColorName(seededBoard[0] ?? ""),
   );
 };
 

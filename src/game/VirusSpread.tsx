@@ -12,11 +12,11 @@ import {
   getConnectedCells,
   getNeighborIndices,
   GRID_SIZE,
-  solveExactlyAsync,
+  solveExactlyPathAsync,
 } from "../utils/utils";
 import { ChevronDown, RotateCw } from "lucide-react";
-// import hexLogoTwo from "../assets/logo_hex.png";
-import hexLogo from "../assets/hex-games-logo.png";
+import hexLogo from "../assets/logo_hex.png";
+// import hexLogo from "../assets/hex-games-logo.png";
 
 const MAX_HEX_SIZE_PX = 18;
 const MIN_HEX_SIZE_PX = 8;
@@ -99,6 +99,8 @@ export const VirusSpread = () => {
     () => initialGame.startingPoint,
   );
   const [optimalSteps, setOptimalSteps] = useState<number | null>(null);
+  const [optimalStepColors, setOptimalStepColors] = useState<string[]>([]);
+  const [isCheetSheetVisible, setIsCheetSheetVisible] = useState(false);
   const [stepsTaken, setStepsTaken] = useState(0);
   const [stepHistory, setStepHistory] = useState<string[]>([]);
   const [replayCount, setReplayCount] = useState(0);
@@ -174,8 +176,17 @@ export const VirusSpread = () => {
       return;
     }
 
-    const cancel = solveExactlyAsync(solverGraph, (steps) => {
-      setOptimalSteps(steps);
+    const cancel = solveExactlyPathAsync(solverGraph, (colorPath) => {
+      if (colorPath === null) {
+        setOptimalSteps(null);
+        setOptimalStepColors([]);
+        return;
+      }
+
+      setOptimalSteps(colorPath.length);
+      setOptimalStepColors(
+        colorPath.map((colorIndex) => colors[colorIndex] ?? "bg-transparent"),
+      );
     });
 
     return cancel;
@@ -285,6 +296,7 @@ export const VirusSpread = () => {
     setSolverBoard(nextGame.board);
     setSolverStart(nextGame.startingPoint);
     setOptimalSteps(null);
+    setOptimalStepColors([]);
     setStepsTaken(0);
     setStepHistory([]);
     setReplayCount(0);
@@ -415,14 +427,14 @@ export const VirusSpread = () => {
           </div>
         </div>
 
-        <div className="mx-auto flex w-full flex-col justify-between self-stretch rounded-2xl border border-transparent bg-blue-950 p-4 shadow-sm sm:border-blue-400 sm:p-7 md:w-xl xl:m-0 xl:w-xl">
+        <div className="mx-auto flex w-full flex-col self-stretch rounded-2xl border border-transparent bg-blue-950 p-4 shadow-sm sm:border-blue-400 sm:p-7 md:w-xl xl:m-0 xl:w-xl">
           <div>
             <div className="flex flex-col gap-6 sm:flex-row">
               <div className="flex w-full flex-col sm:w-1/2">
-                <div className="mb-4 text-xl font-bold tracking-wide text-white uppercase sm:mb-6 sm:text-2xl">
+                <div className="mb-3 text-xl font-bold tracking-wide text-white uppercase sm:mb-6 sm:text-2xl">
                   Controls
                 </div>
-                <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-wrap sm:gap-6">
+                <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-wrap sm:gap-4">
                   {colors.map((colorClass) => (
                     <button
                       key={colorClass}
@@ -431,7 +443,7 @@ export const VirusSpread = () => {
                       disabled={isGameCompleted}
                       data-color={colorClass}
                       className={clsx(
-                        "h-10 w-full rounded-md text-base text-gray-950 capitalize hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-60 sm:w-20 sm:text-xl",
+                        "h-10 w-full rounded-md text-base text-gray-950 capitalize hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-60 sm:w-20 sm:text-xl lg:w-28",
                         colorClass,
                       )}
                     >
@@ -439,10 +451,10 @@ export const VirusSpread = () => {
                     </button>
                   ))}
                 </div>
-                <div className="mt-3">
+                <div>
                   <label
                     htmlFor="board-size"
-                    className="mt-4 mb-2 block text-lg tracking-wide text-white lg:mt-15"
+                    className="mt-3 mb-2 block text-lg tracking-wide text-white lg:mt-4"
                   >
                     Board size
                   </label>
@@ -453,7 +465,7 @@ export const VirusSpread = () => {
                       aria-haspopup="listbox"
                       aria-expanded={isBoardSizeMenuOpen}
                       onClick={() => setIsBoardSizeMenuOpen((open) => !open)}
-                      className="text-md flex h-10 w-full items-center justify-between rounded-md bg-blue-600 px-2 pr-3 text-white outline-none focus:ring-1 focus:ring-white"
+                      className="flex w-full items-center justify-between rounded-md bg-blue-600 py-2 pr-3 pl-2 text-lg text-white outline-none focus:ring-1 focus:ring-blue-400"
                     >
                       <span>
                         {boardSize} x {boardSize}
@@ -492,7 +504,71 @@ export const VirusSpread = () => {
                     ) : null}
                   </div>
                 </div>
+                <div className="mt-4 mb-3 flex flex-col items-center justify-between lg:mt-20">
+                  <button
+                    type="button"
+                    onClick={() => handleNewGame()}
+                    className="text-md mb-3 w-full flex-1 rounded-md bg-blue-600 px-2 py-2 text-white hover:bg-blue-700 sm:text-xl"
+                  >
+                    New game
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleReplayGame}
+                    disabled={stepsTaken >= 3}
+                    className="text-md flex w-full flex-1 items-center justify-center rounded-md bg-yellow-400 px-2 py-2 text-blue-900 hover:bg-yellow-500 disabled:cursor-not-allowed disabled:opacity-60 sm:text-xl"
+                  >
+                    <RotateCw className="mr-2 h-5 w-5" />
+                    Replay game
+                  </button>
+                </div>
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => setIsCheetSheetVisible(!isCheetSheetVisible)}
+                    disabled={replayCount < 3}
+                    className="mb-3 w-full flex-1 rounded-md bg-blue-600 px-2 py-2 text-lg text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60 sm:text-xl"
+                  >
+                    Cheet sheet 🫣
+                  </button>
+                  {isCheetSheetVisible && (
+                    <div className="mb-3 rounded-md border border-blue-400 bg-blue-950 px-3 py-2">
+                      {isSolvingOptimal || optimalSteps === null ? (
+                        <div className="text-sm text-white">
+                          No optimal steps available yet.
+                        </div>
+                      ) : optimalSteps === 0 ? (
+                        <div className="text-sm text-white">
+                          Already solved in 0 steps.
+                        </div>
+                      ) : (
+                        <div className="flex flex-wrap gap-2">
+                          {Array.from({ length: optimalSteps }).map(
+                            (_, index) => {
+                              const stepColor = optimalStepColors[index];
+
+                              return (
+                                <div
+                                  key={`optimal-step-${index + 1}`}
+                                  className={clsx(
+                                    "flex h-8 w-8 items-center justify-center rounded-full border border-blue-400 text-sm font-semibold",
+                                    stepColor ?? "bg-transparent text-white",
+                                    stepColor ? "text-blue-950" : null,
+                                  )}
+                                >
+                                  {index + 1}
+                                </div>
+                              );
+                            },
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
+
               <div className="flex w-full flex-col sm:w-1/2">
                 <div className="mb-4 text-xl font-bold tracking-wide text-white uppercase sm:mb-6 sm:text-2xl">
                   Stats
@@ -509,7 +585,7 @@ export const VirusSpread = () => {
                   {/* (BFS) */}
                   <span className="font-semibold" data-testid="optimal-steps">
                     {isSolvingOptimal
-                      ? "calculating..."
+                      ? "loading..."
                       : optimalSteps === null
                         ? "N/A"
                         : optimalSteps}
@@ -522,12 +598,13 @@ export const VirusSpread = () => {
                     {stepsTaken}
                   </span>
                 </div>
-                {/* <div className="text-md mt-8 mb-3 font-semibold text-white">
-                  Number of moves made:&nbsp;
-                  <span className="font-semibold" data-testid="steps-taken">
-                    {stepsTaken}
-                  </span>
-                </div> */}
+
+                <div className="mb-3 rounded-md border border-blue-400 px-3 py-2 text-lg text-white">
+                  Game replayed&nbsp;
+                  <span className="font-semibold">{replayCount}</span>&nbsp;
+                  times.
+                </div>
+
                 <div className="mb-2 text-lg text-white">Back to move:</div>
 
                 <div className="mb-4 rounded-md border border-blue-400 bg-blue-950 px-3 py-2">
@@ -554,16 +631,6 @@ export const VirusSpread = () => {
                     ))}
                   </div>
                 </div>
-                <div className="mb-3 rounded-md border border-blue-400 px-3 py-2 text-lg text-white">
-                  Game replayed&nbsp;
-                  <span className="font-semibold">{replayCount}</span>&nbsp;
-                  times.
-                </div>
-                {replayCount >= 3 && (
-                  <div className="mb-3 rounded-md border border-blue-400 px-3 py-2 text-lg text-white">
-                    Cheet sheet
-                  </div>
-                )}
               </div>
             </div>
 
@@ -580,23 +647,6 @@ export const VirusSpread = () => {
                 </div>
               ) : null}
             </div>
-          </div>
-          <div className="mt-4 flex flex-col items-center justify-between gap-3 sm:flex-row">
-            <button
-              type="button"
-              onClick={handleReplayGame}
-              className="flex h-10 w-full flex-1 items-center justify-center rounded-md bg-yellow-400 px-2 text-lg text-blue-900 hover:bg-yellow-500 sm:text-xl"
-            >
-              <RotateCw className="mr-2 h-5 w-5" />
-              Replay game
-            </button>
-            <button
-              type="button"
-              onClick={() => handleNewGame()}
-              className="h-10 w-full flex-1 rounded-md bg-blue-600 px-2 text-lg text-white hover:bg-blue-700 sm:text-xl"
-            >
-              New game
-            </button>
           </div>
         </div>
       </div>
@@ -620,9 +670,9 @@ export const VirusSpread = () => {
           Machine&apos;s 😅
         </p>
         <div className="mx-auto mt-10 flex w-fit items-center">
-          {/* <img src={hexLogoTwo} className="mr-6 h-20 w-50" /> */}
+          <img src={hexLogo} className="h-20 w-50" />
 
-          <img src={hexLogo} className="h-30 w-45" />
+          {/* <img src={hexLogo} className="h-30 w-45" /> */}
         </div>
       </div>
     </>

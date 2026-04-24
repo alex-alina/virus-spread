@@ -14,6 +14,7 @@ import {
   getRandomCellIndex,
   getRandomColor,
   solveExactlyAsync,
+  solveExactlyPathAsync,
 } from "./utils";
 
 const sortIndices = (values: number[]) => [...values].sort((a, b) => a - b);
@@ -150,6 +151,40 @@ describe("virus-spread utils", () => {
     expect(onComplete).toHaveBeenCalledWith(1);
 
     jest.useRealTimers();
+  });
+
+  it("returns the optimal color path asynchronously", () => {
+    jest.useFakeTimers();
+
+    const board = makeBoard(colors[0], { 1: colors[1] });
+    const graph = buildComponentGraph(board, 0);
+
+    if (!graph) {
+      throw new Error("Graph should be defined");
+    }
+
+    const onComplete = jest.fn();
+    solveExactlyPathAsync(graph, onComplete);
+
+    jest.runAllTimers();
+
+    expect(onComplete).toHaveBeenCalledWith([1]);
+
+    jest.useRealTimers();
+  });
+
+  it("returns an empty path for an already solved board", () => {
+    const board = makeBoard(colors[0]);
+    const graph = buildComponentGraph(board, 0);
+
+    if (!graph) {
+      throw new Error("Graph should be defined");
+    }
+
+    const onComplete = jest.fn();
+    solveExactlyPathAsync(graph, onComplete);
+
+    expect(onComplete).toHaveBeenCalledWith([]);
   });
 
   it("builds a new game with valid bounds", () => {

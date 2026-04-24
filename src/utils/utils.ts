@@ -19,6 +19,10 @@ type ComponentGraph = {
   startColor: number;
 };
 
+type SolverResult = {
+  colorPath: number[] | null;
+};
+
 export const getRandomColor = () => colors[Math.floor(Math.random() * colors.length)];
 export const getRandomCellIndex = (cellCount: number) => Math.floor(Math.random() * cellCount);
 export const getCellCount = (gridSize: number) => gridSize * gridSize;
@@ -213,11 +217,33 @@ export const solveExactlyAsync = (
   graph: ComponentGraph,
   onComplete: (steps: number | null) => void
 ): (() => void) => {
+  const cancel = solveExactlyPathAsync(graph, (colorPath) => {
+    onComplete(colorPath === null ? null : colorPath.length);
+  });
+
+  return cancel;
+};
+
+export const solveExactlyPathAsync = (
+  graph: ComponentGraph,
+  onComplete: (colorPath: number[] | null) => void
+): (() => void) => {
+  const cancel = solveExactlyWithPathAsync(graph, (result) => {
+    onComplete(result.colorPath);
+  });
+
+  return cancel;
+};
+
+const solveExactlyWithPathAsync = (
+  graph: ComponentGraph,
+  onComplete: (result: SolverResult) => void
+): (() => void) => {
   let cancelled = false;
 
   const startMask = graph.componentBits[graph.startComponent];
   if (startMask === graph.allMask) {
-    onComplete(0);
+    onComplete({ colorPath: [] });
     return () => {
       cancelled = true;
     };
@@ -227,9 +253,24 @@ export const solveExactlyAsync = (
   const queueMasks: bigint[] = [startMask];
   const queueColors: number[] = [graph.startColor];
   const queueDepths: number[] = [0];
+  const queueParents: number[] = [-1];
+  const queueMoveColors: number[] = [-1];
   let head = 0;
 
   visited.add(`${startMask.toString(16)}:${graph.startColor}`);
+
+  const buildPathForIndex = (stateIndex: number) => {
+    const path: number[] = [];
+    let cursor = stateIndex;
+
+    while (cursor !== 0) {
+      path.push(queueMoveColors[cursor]);
+      cursor = queueParents[cursor];
+    }
+
+    path.reverse();
+    return path;
+  };
 
   const processChunk = () => {
     if (cancelled) {
@@ -239,9 +280,10 @@ export const solveExactlyAsync = (
     let processed = 0;
 
     while (head < queueMasks.length && processed < SOLVER_CHUNK_SIZE) {
-      const currentMask = queueMasks[head];
-      const currentColor = queueColors[head];
-      const currentDepth = queueDepths[head];
+      const currentIndex = head;
+      const currentMask = queueMasks[currentIndex];
+      const currentColor = queueColors[currentIndex];
+      const currentDepth = queueDepths[currentIndex];
       head += 1;
       processed += 1;
 
@@ -257,7 +299,15 @@ export const solveExactlyAsync = (
         }
 
         if (nextMask === graph.allMask) {
-          onComplete(currentDepth + 1);
+          queueMasks.push(nextMask);
+          queueColors.push(colorIndex);
+          queueDepths.push(currentDepth + 1);
+          queueParents.push(currentIndex);
+          queueMoveColors.push(colorIndex);
+
+          const solvedIndex = queueMasks.length - 1;
+          const solvedPath = buildPathForIndex(solvedIndex);
+          onComplete({ colorPath: solvedPath });
           return;
         }
 
@@ -270,6 +320,8 @@ export const solveExactlyAsync = (
         queueMasks.push(nextMask);
         queueColors.push(colorIndex);
         queueDepths.push(currentDepth + 1);
+        queueParents.push(currentIndex);
+        queueMoveColors.push(colorIndex);
       }
     }
 
@@ -278,7 +330,7 @@ export const solveExactlyAsync = (
       return;
     }
 
-    onComplete(null);
+    onComplete({ colorPath: null });
   };
 
   setTimeout(processChunk, 0);

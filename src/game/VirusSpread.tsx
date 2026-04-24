@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import clsx from "clsx";
 import happyVirus from "../assets/happy-small.png";
+import celebrate from "../assets/celebrate.png";
+import hugsy from "../assets/hugsy.png";
+
 import {
   BOARD_SIZES,
   buildComponentGraph,
@@ -14,7 +17,7 @@ import {
   GRID_SIZE,
   solveExactlyPathAsync,
 } from "../utils/utils";
-import { ChevronDown, RotateCw } from "lucide-react";
+import { ChevronDown, RotateCw, Clock10 } from "lucide-react";
 import hexLogo from "../assets/logo_hex.png";
 // import hexLogo from "../assets/hex-games-logo.png";
 
@@ -516,7 +519,7 @@ export const VirusSpread = () => {
                   <button
                     type="button"
                     onClick={handleReplayGame}
-                    disabled={stepsTaken >= 3}
+                    disabled={stepsTaken < 3}
                     className="text-md flex w-full flex-1 items-center justify-center rounded-md bg-yellow-400 px-2 py-2 text-blue-900 hover:bg-yellow-500 disabled:cursor-not-allowed disabled:opacity-60 sm:text-xl"
                   >
                     <RotateCw className="mr-2 h-5 w-5" />
@@ -634,19 +637,67 @@ export const VirusSpread = () => {
               </div>
             </div>
 
-            <div className="flex flex-col gap-6">
-              {isGameCompleted ? (
-                <div className="space-y-2">
-                  <div
-                    className="my-6 flex w-full justify-center rounded-md border border-green-400 px-3 py-2 text-lg text-white"
-                    data-testid="game-completed"
-                  >
-                    Game completed in&nbsp;
-                    {formatElapsedTime(completedTimeSeconds ?? 0)}&nbsp;min
+            {/* <div className="flex flex-col gap-6"> */}
+            {isGameCompleted ? (
+              <div className="mt-4 flex w-full flex-col items-center justify-center rounded-md border border-green-400 px-3 py-2 text-white">
+                {stepsTaken === optimalSteps && (
+                  <div className="flex w-full flex-col items-center justify-center space-y-3 text-xl">
+                    <div>
+                      <img
+                        src={celebrate}
+                        className="h-30 w-30"
+                        alt="Celebrating Emoji Face"
+                      />
+                    </div>
+                    <h3 className="text-2xl">
+                      Wow, you are faster thant the speed of light!
+                    </h3>
+                    <p>You mighty Finder of the Shortest Path to Invasion!</p>
+                    <div
+                      className="flex items-center"
+                      data-testid="game-completed"
+                    >
+                      <Clock10 className="mr-2 h-5 w-5 text-green-400" /> Game
+                      completed in&nbsp;
+                      <span className="text-green-400">
+                        {formatElapsedTime(completedTimeSeconds ?? 0)}&nbsp;
+                      </span>{" "}
+                      min
+                    </div>
                   </div>
-                </div>
-              ) : null}
-            </div>
+                )}
+                {stepsTaken !== optimalSteps && (
+                  <div className="flex w-full flex-col items-center justify-center space-y-3 p-2 text-xl lg:p-4">
+                    <div>
+                      <img
+                        src={hugsy}
+                        className="h-25 w-30"
+                        alt="Celebrating Emoji Face"
+                      />
+                    </div>
+                    <h3 className="text-2xl">You got there buddy!</h3>
+                    <p>On your own, no cheet sheed needed.</p>
+                    <p className="text-center">
+                      A few extra steps, sure, but hey, slow and steady wins the
+                      race.
+                    </p>
+                    {/* It may take a few extra steps—but hey, the tortoise got there firs */}
+                    <div
+                      className="flex items-center"
+                      data-testid="game-completed"
+                    >
+                      <Clock10 className="mr-2 h-5 w-5 text-yellow-400" /> Game
+                      completed in&nbsp;
+                      <span className="text-green-400">
+                        {formatElapsedTime(completedTimeSeconds ?? 0)}&nbsp;
+                      </span>
+                      min
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : null}
+            {/* </div> */}
           </div>
         </div>
       </div>
@@ -662,12 +713,21 @@ export const VirusSpread = () => {
         </p>
         <p className="my-5">
           You can use it to practice spatial reasoning and predictive planning
-          or just have some fun at the end of the day, or the middle, or with
+          or just have some fun at the end of the day, or in the middle, or with
           your morning coffee.
         </p>
         <p>
           Just don&apos;t get angry if your virus is slower than the
           Machine&apos;s 😅
+        </p>
+
+        <p className="mt-6">
+          The <span className="italic">Replay game&nbsp;</span> button is
+          enabled after 3 moves.
+        </p>
+        <p>
+          The <span className="italic">Cheet sheet&nbsp;</span> button is
+          enabled after 3 replayed games.
         </p>
         <div className="mx-auto mt-10 flex w-fit items-center">
           <img src={hexLogo} className="h-20 w-50" />
